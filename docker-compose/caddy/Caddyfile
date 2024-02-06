@@ -1,0 +1,39 @@
+{
+	# either this or wrap crowdsec in route {} for each domain to ensure crowdsec is executed first
+	order crowdsec first
+
+	crowdsec {
+		api_url http://crowdsec:8080
+		api_key {$CROWDSEC_LOCAL_API_KEY}
+	}
+
+	email {$MY_EMAIL}
+
+	# allow the Docker IP range to act as a trusted proxy to set the right client ip https://github.com/hslatman/caddy-crowdsec-bouncer/issues/33
+	servers {
+		trusted_proxies static 10.x.x.5
+		client_ip_headers Cf-Connecting-Ip X-Forwarded-For
+	}
+}
+
+# Log accesses for crowdsec log analysis
+(access_log) {
+	log {
+		output file /data/log/caddy.log
+	}
+}
+
+# Set SSL/TLS encription mode to Full (strict) https://dash.cloudflare.com/24215ba4f9e7d7664f1c6acbb31e0ec3/{$MY_DOMAIN}/ssl-tls
+(cloudflare) {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+        resolvers 1.1.1.1
+	}
+}
+
+web-app.{$MY_DOMAIN} {
+	crowdsec
+	reverse_proxy web-app:8080
+	import cloudflare
+	import access_log
+}

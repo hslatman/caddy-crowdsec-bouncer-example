@@ -1,0 +1,64 @@
+version: "3.8"
+
+  caddy:
+    container_name: caddy
+    image: caddy:latest
+    build:
+      context: ~/path/caddy
+      dockerfile: Dockerfile
+    volumes:
+      - ~/path/caddy:/data
+      - ~/path/caddy/config/Caddyfile:/etc/caddy/Caddyfile:ro
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CROWDSEC_LOCAL_API_KEY=${CROWDSEC_LOCAL_API_KEY}
+      - MY_DOMAIN=${MY_DOMAIN}
+      - MY_EMAIL=${MY_EMAIL}
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - crowdsec
+      - web-app
+    networks:
+      proxy:
+        ipv4_address: 10.x.x.5
+      frontend:
+
+  crowdsec:
+    container_name: crowdsec
+    image: crowdsecurity/crowdsec
+    volumes:
+      - ~/path/crowdsec/data:/var/lib/crowdsec/data
+      - ~/path/crowdsec/config:/etc/crowdsec
+      - ~/path/crowdsec/acquis.d:/etc/crowdsec/acquis.d
+      - ~/path/caddy/log:/var/log/caddy:ro
+    environment:
+      - COLLECTIONS=crowdsecurity/caddy
+    networks:
+      - proxy
+
+  web-app:
+    container_name: web-app
+    depends_on:
+      - web-app-backend
+    networks:
+      - frontend
+      - backend
+
+  web-app-backend:
+    container_name: web-app-backend
+    networks:
+      - backend
+
+networks:
+  proxy:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.x.x.0/16
+          gateway: 10.x.x.1
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
